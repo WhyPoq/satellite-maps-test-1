@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Fieldwork · Image Processing Lab</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='segmentation.css') }}">
+  <script defer src="{{ url_for('static', filename='seeds.js') }}"></script>
+  <script defer src="{{ url_for('static', filename='app.js') }}"></script>
+</head>
+<body>
+  <header class="topbar"><a class="brand" href="/">◈ <span>FIELDWORK<span class="brand-sub">IMAGE PROCESSING LAB</span></span></a><div class="top-links"><span class="local"><i></i> LOCAL WORKSPACE</span><a href="/paper#page=3" target="_blank" rel="noopener">Read paper ↗</a></div></header>
+  <main>
+    <section class="intro"><div><div class="eyebrow">EXPERIMENT WORKBENCH / 01–03</div><h1>See the structure.<br><span>Refine the signal.</span></h1><p>Explore feature inference, segmentation, and road networks.<br>Select your images, tune the parameters, and inspect every output.</p></div><div class="pipeline"><div class="stage active"><b>01</b><span>Feature inference<small>Gabor → tensor voting → classification</small></span><span class="badge">ACTIVE</span></div><div class="stage active"><b>02</b><span>Road segmentation<small>Optional · seeded graph cuts · paper §5 prototype</small></span></div><div class="stage active"><b>03</b><span>Network extraction<small>Optional · centrelines → tracked road polygons · §6</small></span></div></div></section>
+    <div class="workspace">
+      <aside>
+        <form id="settings-form">
+          <div class="panel-heading"><h2>Parameters</h2><button type="button" class="text-button" id="reset">Reset</button></div>
+          <section class="settings-section"><div class="section-label"><span>01 / GABOR FILTER BANK</span><span>§4.1</span></div>
+            <div class="fields"><label>Orientations<input name="n_orient" type="number" min="3" max="16" step="1" required><small>Directions over 0–180°</small></label><label>Frequency scales<input name="n_scale" type="number" min="2" max="8" step="1" required><small>Filters per orientation</small></label></div>
+            <div class="fields"><label>Lower frequency<input name="ul" type="number" min="0.02" max="0.48" step="0.005" required></label><label>Upper frequency<input name="uh" type="number" min="0.025" max="0.49" step="0.005" required></label></div><p class="hint">Cycles per processed pixel. The paper uses 8 orientations × 5 scales; frequency bounds are implementation defaults.</p>
+          </section>
+          <section class="settings-section"><div class="section-label"><span>02 / TENSOR VOTING</span><span>§4.2</span></div>
+            <label class="range-label">Neighborhood σ <output id="sigma-value">12 px</output><input name="sigma" type="range" min="1" max="40" step="0.5"></label><p class="hint">Larger neighborhoods connect more distant features. Measured in processed-image pixels.</p>
+            <label>Angular order<input name="n_angular" type="number" min="1" max="16" step="1" required><small>cos²ⁿ angular decay; higher values narrow the voting field.</small></label>
+          </section>
+          <section class="settings-section"><div class="section-label"><span>03 / PROCESSING</span><span>INPUT</span></div><label>Maximum image dimension<select name="max_dimension"><option value="256">256 px · quick check</option><option value="512">512 px · fast preview</option><option value="768">768 px · balanced</option><option value="1024">1024 px · detailed</option><option value="1536">1536 px · high resolution</option><option value="2048">2048 px · highest resolution</option></select></label><p class="hint">Aspect ratio is preserved. Small images are never upscaled. Resizing changes the physical scale of the filters.</p></section>
+          <section class="settings-section"><div class="section-label"><span>04 / SEGMENTATION</span><span>§5</span></div>
+            <label class="checkbox-label"><input name="segmentation_enabled" type="checkbox"> Enable road segmentation</label>
+            <p class="hint">Use “Mark seeds” on each selected image to paint road and background examples. Start at 256 px: graph cuts are slower than feature inference.</p>
+            <fieldset id="segmentation-settings" disabled>
+              <label class="checkbox-label"><input name="segmentation_orientation" type="checkbox"> Use orientation guidance</label>
+              <div class="fields"><label>Angle bins<input name="seg_n_angles" type="number" min="2" max="32" step="1" required></label><label>Smoothness λ<input name="seg_smoothness" type="number" min="0" max="10" step="0.01" required></label></div>
+              <div class="fields"><label>Orientation weight<input name="seg_orientation_weight" type="number" min="0" max="20" step="0.1" required></label><label>Direction boost<input name="seg_direction_boost" type="number" min="0" max="20" step="0.1" required></label></div>
+              <div class="fields"><label>Color σ<input name="seg_color_sigma" type="number" min="0.001" max="2" step="0.001" required></label><label>Variance floor<input name="seg_variance_floor" type="number" min="0.00001" max="1" step="0.00001" required></label></div>
+              <div class="fields"><label>Maximum cycles<input name="seg_max_cycles" type="number" min="1" max="20" step="1" required></label><label>Capacity scale<input name="seg_capacity_scale" type="number" min="1" max="1000000" step="1" required></label></div>
+              <p class="hint">Disable orientation guidance for a color-only baseline using the same seeds. Values above are prototype defaults, not paper-reported settings.</p>
+            </fieldset>
+          </section>
+          <section class="settings-section"><div class="section-label"><span>05 / NETWORK EXTRACTION</span><span>§6</span></div>
+            <label class="checkbox-label"><input name="extraction_enabled" type="checkbox"> Enable network extraction</label>
+            <fieldset id="extraction-settings" disabled>
+              <label>Segmentation input<select id="extraction-source"><option value="">Full pipeline · compute segmentation</option></select></label>
+              <p class="hint">Choose a saved segmentation to run only extraction. Its inputs, resolution, and upstream settings are restored and held fixed.</p>
+              <div class="fields"><label>Minimum width<input name="net_min_width" type="number" min="2" max="128" step="1" required></label><label>Maximum width<input name="net_max_width" type="number" min="2" max="128" step="1" required></label></div>
+              <div class="fields"><label>Width step<input name="net_width_step" type="number" min="1" max="32" step="1" required></label><label>Filter orientations<input name="net_n_orientations" type="number" min="2" max="36" step="1" required></label></div>
+              <div class="fields"><label>Across-road σ<input name="net_sigma_across" type="number" min="0.25" max="30" step="0.25" required></label><label>Along-road σ<input name="net_sigma_along" type="number" min="0.25" max="30" step="0.25" required></label></div>
+              <label>Road-side evidence<select name="net_curve_source"><option value="tensor">Stage 1 · voted curve ridges</option><option value="mask">Stage 2 · mask boundaries (script default)</option></select></label>
+              <label class="checkbox-label"><input name="net_keep_longest" type="checkbox"> Keep longest connected network</label>
+              <p class="hint">Widths and σ use processed-image pixels. The tested widths run from minimum to maximum in the chosen step. Smaller roads at low resolution need smaller width values.</p>
+            </fieldset>
+          </section>
+          <button id="run-button" type="submit" class="primary">Run experiment <span>↗</span></button><p id="selection-count" class="selection-count">Select images to begin</p>
+          <p id="form-error" class="error" role="alert"></p>
+        </form>
+        <details class="method-note"><summary>About this implementation</summary><p>Based on Poullis &amp; You, <em>Delineation and geometric modeling of road networks</em> (2010), §4. The existing code uses 2×2 tensors, steerable FFT voting, and stick-only votes. This approximates the paper’s 3D tensor formulation and decay field.</p><p>σ = 12, angular order = 8, and frequency bounds 0.05–0.4 are implementation choices. Curves dominate where curve saliency exceeds junction saliency. Ridge extraction adds non-maximum suppression and the existing 0.1% numerical floor. Outputs are feature candidates, not segmented roads.</p></details>
+        <details class="method-note"><summary>Segmentation prototype limits</summary><p>Segmentation uses one diagonal Gaussian per class and a weighted Potts energy with α-expansion. The paper uses GMMs with MDL model selection and different orientation-aware data and smoothness terms (Eqs. 11–16). Road/background seeds are supplied manually as in the paper.</p><p>Orientation confidence is normalized curve saliency restricted to the classified ridges. Mask quality depends on the examples you mark. Orientation output is quantized; iteration limits can stop the solver before convergence.</p></details>
+        <details class="method-note"><summary>Network extraction notes</summary><p>Automatic extraction uses the supplied centreline filters, weighted Hough transform, tracking, and polygon union. Stage 1 curve evidence is available in this pipeline; mask boundaries reproduce the standalone script’s input choice.</p><p>JSON and GeoJSON use image pixel coordinates, not geographic coordinates. The optional manual refinement actions in the script remain available through its CLI. Defaults and filter assumptions are documented in the README.</p></details>
+      </aside>
+      <div class="main-column">
+        <section class="input-panel"><div class="panel-heading"><div><h2>Test images <span id="image-count" class="count">0</span></h2><p class="subtle">Choose one or more images from <code>test_input/</code></p></div><button class="text-button" id="select-all" type="button">Select all</button></div><div id="image-list" class="image-list"><p class="subtle">Loading test images…</p></div></section>
+        <section class="results-panel"><div class="panel-heading result-heading"><div><div class="eyebrow">OBSERVATIONS</div><h2>Experiment results</h2></div><div class="result-actions"><select id="history" aria-label="Experiment history"><option value="">Run history</option></select><a id="download" class="secondary" hidden>Download run ↓</a></div></div>
+          <div id="progress-panel" class="progress-panel" hidden><div><span id="progress-text" role="status" aria-live="polite"></span><span id="progress-number"></span></div><progress id="progress" max="1" value="0"></progress></div>
+          <div id="run-info" class="run-info" hidden></div><div id="run-errors" class="error" role="alert"></div>
+          <div id="empty" class="empty-state"><div class="empty-icon">⌁</div><h3>A closer look starts here.</h3><p>Select test images and run an experiment to compare<br>filter responses, saliency, and classified curves.</p><div class="empty-flow"><span>Input</span> → <span>Gabor</span> → <span>Tensor voting</span> → <span>Features</span></div></div>
+          <div id="result-controls" class="result-controls" hidden><label>Output view<select id="view-select"><option value="overview">Overview · key stages</option><option value="original">Input image</option><option value="gray">Grayscale</option><option value="gabor_combined">Gabor · all orientations</option><option value="saliency">Curve / junction saliency</option><option value="curve_sal">Curve saliency</option><option value="junction_sal">Junction saliency</option><option value="classification">Dominant feature</option><option value="curve_map">Classified curve ridges</option><option value="overlay">Curve overlay</option><option value="orientation">Curve orientation</option><option value="bank">Gabor · orientation bank</option><option value="road_mask">Segmentation · road mask</option><option value="segmentation_overlay">Segmentation · overlay</option><option value="segmentation_orientation">Segmentation · orientation</option><option value="seed_overlay">Segmentation · seeds</option></select></label><p>Click any output to inspect at full size.<br><span class="green-dot">●</span> Curve / road &nbsp; <span class="blue-dot">●</span> Junction</p></div>
+          <div id="results"></div>
+        </section>
+      </div>
+    </div>
+    <footer><span>FIELDWORK / GEOSPATIAL FEATURE INFERENCE</span><span>Local processing · reproducible settings · raw array exports</span></footer>
+  </main>
+  <dialog id="image-dialog"><div class="dialog-heading"><div><h3 id="dialog-title"></h3><p id="dialog-description"></p></div><button id="close-dialog" aria-label="Close image">✕</button></div><img id="dialog-image" alt=""><a id="dialog-download" class="secondary" download>Download PNG ↓</a></dialog>
+  <dialog id="seed-dialog"><div class="dialog-heading"><div><h3 id="seed-title">Mark segmentation seeds</h3><p>Paint inside roads in red and background areas in blue. Avoid boundaries. Later strokes replace earlier marks.</p></div><button id="close-seeds" type="button" aria-label="Save seeds and close">✕</button></div>
+    <div class="seed-toolbar"><label>Paint class<select id="seed-kind"><option value="road">Red · road</option><option value="background">Blue · background</option></select></label><label>Brush radius<input id="seed-radius" type="range" min="0.002" max="0.05" step="0.001" value="0.008"></label><button id="undo-seed" type="button" class="secondary">Undo stroke</button><button id="clear-seeds" type="button" class="secondary">Clear seeds</button><button id="save-seeds" type="button" class="secondary">Save &amp; close</button></div>
+    <p id="seed-status" class="subtle" role="status"></p><div class="seed-canvas-wrap"><canvas id="seed-canvas" aria-label="Seed painting canvas. Use a pointer or touch to paint road and background examples."></canvas></div><p id="seed-error" class="error" role="alert"></p>
+  </dialog>
+</body>
+</html>

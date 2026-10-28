@@ -1,0 +1,17 @@
+.checkbox-label{display:flex;align-items:center;gap:8px;margin:12px 0 16px;line-height:1.5}
+.checkbox-label input{accent-color:var(--accent);margin:0}
+#segmentation-settings{border:0;padding:0;margin:16px 0 0;min-width:0}
+#segmentation-settings:disabled{opacity:.45}
+#extraction-settings{border:0;padding:0;margin:16px 0 0;min-width:0}
+#extraction-settings:disabled{opacity:.45}
+.result-meta a{display:inline-block;margin-top:5px}
+.image-selection{display:block;cursor:pointer}
+.seed-button{width:100%;border:0;border-top:1px solid var(--line);padding:10px;background:#edf2e7;color:var(--accent);font-size:11px;text-align:left}
+.seed-button:hover{background:#dfe9d6}
+.seed-toolbar{display:flex;align-items:end;gap:14px;flex-wrap:wrap;border-block:1px solid var(--line);padding:14px 0;margin-bottom:12px}
+.seed-toolbar label{min-width:150px}
+.seed-toolbar .secondary{min-height:37px;font-size:11px}
+.seed-canvas-wrap{margin-top:15px;overflow:auto;background:#142018;text-align:center}
+#seed-canvas{max-width:100%;height:auto;display:block;margin:auto;touch-action:none;cursor:crosshair}
+#seed-dialog{width:min(1120px,96vw)}
+@media(max-width:750px){.seed-toolbar{gap:10px}.seed-toolbar label{flex:1}.seed-toolbar .secondary{flex:1}.result-meta{overflow-wrap:anywhere}}
